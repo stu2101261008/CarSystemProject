@@ -7,13 +7,12 @@ from databases import Database
 from datetime import date
 from typing import Optional
 from sqlalchemy import func
-
+from fastapi.middleware.cors import CORSMiddleware
 
 # Инициализация на FastAPI
 app = FastAPI()
 database = Database(DATABASE_URL)
 
-from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
     CORSMiddleware,
