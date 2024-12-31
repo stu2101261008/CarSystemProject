@@ -5,9 +5,9 @@ from database import engine, metadata, DATABASE_URL
 from sqlalchemy import select
 from databases import Database
 from datetime import date
-from typing import Optional
 from sqlalchemy import func
 from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional
 
 # Инициализация на FastAPI
 app = FastAPI()
@@ -37,7 +37,7 @@ async def shutdown():
 # Основен ендпойнт
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to Car Management System API"}
+    return {"message": "Добре дошли в системата за управление на автомобили!"}
 
 # ---------------------------- Гаражи ----------------------------
 
@@ -131,7 +131,7 @@ async def create_car(car: CarCreate):
     if existing_car:
         raise HTTPException(status_code=400, detail="Car with this license plate already exists")
 
-    # Въведете новия автомобил в базата данни
+    # Въвеждане на новия автомобил в базата данни
     query = Car.__table__.insert().values(
         make=car.make,
         model=car.model,
@@ -140,7 +140,7 @@ async def create_car(car: CarCreate):
     )
     car_id = await database.execute(query)
 
-    # Регистрираме автомобила в гаражите
+    # Регистриране на автомобила в гаражите
     for garage_id in car.garages:
         query = CarGarageAssociation.__table__.insert().values(car_id=car_id, garage_id=garage_id)
         await database.execute(query)
@@ -184,7 +184,7 @@ async def update_car(car_id: int, car: CarCreate):
     )
     await database.execute(update_query)
 
-    # Обновяваме също и връзката с гаражите
+    # Обновяване също и на връзката с гаражите
     delete_query = CarGarageAssociation.__table__.delete().where(CarGarageAssociation.car_id == car_id)
     await database.execute(delete_query)
 
@@ -205,7 +205,7 @@ async def delete_car(car_id: int):
     delete_query = Car.__table__.delete().where(Car.id == car_id)
     await database.execute(delete_query)
 
-    # Изтриваме връзката на автомобила с гаражите
+    # Изтриване на връзката на автомобила с гаражите
     delete_association_query = CarGarageAssociation.__table__.delete().where(CarGarageAssociation.car_id == car_id)
     await database.execute(delete_association_query)
 
@@ -239,7 +239,7 @@ async def create_service_request(request: ServiceRequestCreate):
     if existing_requests[0] >= max_capacity[0]:
         raise HTTPException(status_code=400, detail="No available slots for the selected date")
 
-    # Въвеждаме новата заявка
+    # Въвеждане на новата заявка
     insert_query = service_requests.insert().values(
         car_id=request.car_id,
         garage_id=request.garage_id,
