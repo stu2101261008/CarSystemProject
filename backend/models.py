@@ -1,56 +1,47 @@
-from pydantic import BaseModel  # Трябва да добавите този импорт
-from typing import List
-from sqlalchemy import Table, Column, Integer, String, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Date, ForeignKey
 from sqlalchemy.orm import relationship
-from database import metadata
+from sqlalchemy.ext.declarative import declarative_base
 
-# Таблица за гаражи
-garages = Table(
-    "garages", 
-    metadata,
-    Column("id", Integer, primary_key=True, index=True),
-    Column("name", String, index=True),
-    Column("location", String),
-    Column("city", String),
-    Column("capacity", Integer)
-)
+# Основна база
+Base = declarative_base()
 
-# Таблица за автомобили
-cars = Table(
-    "cars",
-    metadata,
-    Column("id", Integer, primary_key=True, index=True),
-    Column("make", String, index=True),
-    Column("model", String),
-    Column("productionYear", Integer),
-    Column("licensePlate", String, unique=True)
-)
+# Клас за Гараж
+class Garage(Base):
+    __tablename__ = "garages"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    location = Column(String)
+    city = Column(String)
+    capacity = Column(Integer)
+    
+    # Отношение към автомобили
+    cars = relationship("Car", secondary="car_garage_association")
 
-# Ассоциация между автомобили и гаражи
-car_garage_association = Table(
-    "car_garage_association",
-    metadata,
-    Column("car_id", Integer, ForeignKey("cars.id")),
-    Column("garage_id", Integer, ForeignKey("garages.id"))
-)
+# Клас за Автомобил
+class Car(Base):
+    __tablename__ = "cars"
+    id = Column(Integer, primary_key=True, index=True)
+    make = Column(String)
+    model = Column(String)
+    productionYear = Column(Integer)
+    licensePlate = Column(String, unique=True)
+    
+    # Отношение към гаражи
+    garages = relationship("Garage", secondary="car_garage_association")
 
-# Pydantic модел за създаване на автомобил
-class CarCreate(BaseModel):
-    make: str
-    model: str
-    productionYear: int
-    licensePlate: str
-    garages: List[int]  # Списък с ID-та на гаражи, в които е регистриран автомобилът
+# Клас за Заявка за поддръжка
+class ServiceRequest(Base):
+    __tablename__ = "service_requests"
+    id = Column(Integer, primary_key=True, index=True)
+    car_id = Column(Integer, ForeignKey("cars.id"))
+    garage_id = Column(Integer, ForeignKey("garages.id"))
+    service_date = Column(Date)
 
-    class Config:
-        orm_mode = True  # Това позволява на Pydantic да работи със SQLAlchemy модели
-
-# Pydantic модел за създаване на гараж
-class GarageCreate(BaseModel):
-    name: str
-    location: str
-    city: str
-    capacity: int
-
-    class Config:
-        orm_mode = True  # Това позволява на Pydantic да работи със SQLAlchemy модели
+    car = relationship("Car")
+    garage = relationship("Garage")
+    
+# Таблица за асоциации между автомобил и гараж
+class CarGarageAssociation(Base):
+    __tablename__ = "car_garage_association"
+    car_id = Column(Integer, ForeignKey("cars.id"), primary_key=True)
+    garage_id = Column(Integer, ForeignKey("garages.id"), primary_key=True)
