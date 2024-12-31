@@ -1,25 +1,17 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from models import garages
+from models import garages, cars, car_garage_association, CarCreate, GarageCreate
 from database import engine, metadata, DATABASE_URL
 from sqlalchemy import select
 from databases import Database
-from models import cars, car_garage_association, CarCreate, Car
+from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 
-
-# Pydantic модел за валидиране
-class GarageCreate(BaseModel):
-    name: str
-    location: str
-    city: str
-    capacity: int
-
-# Инициализация
+# Инициализация на FastAPI
 app = FastAPI()
 database = Database(DATABASE_URL)
 
-# Създаване на таблиците
+# Създаване на таблиците в базата данни
 metadata.create_all(engine)
 
 @app.on_event("startup")
@@ -35,7 +27,16 @@ async def shutdown():
 def read_root():
     return {"message": "Welcome to Car Management System API"}
 
-# Създаване на сервиз
+# ---------------------------- Гаражи ----------------------------
+
+# Pydantic модел за създаване на гараж
+class GarageCreate(BaseModel):
+    name: str
+    location: str
+    city: str
+    capacity: int
+
+# Създаване на нов сервиз
 @app.post("/garages/", status_code=201)
 async def create_garage(garage: GarageCreate):
     query = garages.insert().values(
@@ -53,19 +54,16 @@ async def create_garage(garage: GarageCreate):
         "capacity": garage.capacity,
     }
 
-# Извличане на всички сервизи
+# Извличане на всички сервизи с филтър по град
 @app.get("/garages/")
 async def read_garages(city: str = None):
     query = select(garages)
-    
     if city:
-        query = query.where(garages.c.city == city)  # Добавяме филтър по град
-    
+        query = query.where(garages.c.city == city)  # Филтриране по град
     garages_list = await database.fetch_all(query)
     return garages_list
 
-
-# Извличане на конкретен сервиз
+# Извличане на конкретен сервиз по ID
 @app.get("/garages/{garage_id}")
 async def read_garage(garage_id: int):
     query = select(garages).where(garages.c.id == garage_id)
@@ -74,7 +72,7 @@ async def read_garage(garage_id: int):
         raise HTTPException(status_code=404, detail="Garage not found")
     return garage
 
-# Обновяване на сервиз
+# Обновяване на съществуващ сервиз
 @app.put("/garages/{garage_id}")
 async def update_garage(garage_id: int, garage: GarageCreate):
     query = select(garages).where(garages.c.id == garage_id)
@@ -87,7 +85,7 @@ async def update_garage(garage_id: int, garage: GarageCreate):
     await database.execute(update_query)
     return {"id": garage_id, **garage.dict()}
 
-# Изтриване на сервиз
+# Изтриване на сервиз по ID
 @app.delete("/garages/{garage_id}", status_code=204)
 async def delete_garage(garage_id: int):
     query = select(garages).where(garages.c.id == garage_id)
@@ -98,19 +96,17 @@ async def delete_garage(garage_id: int):
     await database.execute(delete_query)
     return {"message": "Garage deleted"}
 
-from fastapi.middleware.cors import CORSMiddleware
+# ---------------------------- Автомобили ----------------------------
 
-# Добавяне на CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Или заменете със специфичен URL като "http://localhost:3000"
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Pydantic модел за създаване на автомобил
+class CarCreate(BaseModel):
+    make: str
+    model: str
+    productionYear: int
+    licensePlate: str
+    garages: list[int]  # Списък с ID-та на гаражи
 
-
-# Създаване на автомобил
+# Създаване на нов автомобил
 @app.post("/cars/", status_code=201)
 async def create_car(car: CarCreate):
     # Проверка дали автомобил с такава лицензна табела вече съществува
@@ -119,7 +115,7 @@ async def create_car(car: CarCreate):
     if existing_car:
         raise HTTPException(status_code=400, detail="Car with this license plate already exists")
 
-    # Въведете автомобила в базата данни
+    # Въведете новия автомобил в базата данни
     query = cars.insert().values(
         make=car.make,
         model=car.model,
@@ -135,8 +131,7 @@ async def create_car(car: CarCreate):
 
     return {**car.dict(), "id": car_id}
 
-
-# Извличане на всички автомобили с филтри
+# Извличане на автомобили с филтри по марка и диапазон от години на производство
 @app.get("/cars/")
 async def read_cars(make: Optional[str] = None, year_from: Optional[int] = None, year_to: Optional[int] = None):
     query = select(cars)
@@ -160,7 +155,7 @@ async def read_car(car_id: int):
         raise HTTPException(status_code=404, detail="Car not found")
     return car
 
-# Актуализиране на автомобил
+# Обновяване на автомобил
 @app.put("/cars/{car_id}")
 async def update_car(car_id: int, car: CarCreate):
     query = select(cars).where(cars.c.id == car_id)
@@ -200,3 +195,13 @@ async def delete_car(car_id: int):
 
     return {"message": "Car deleted"}
 
+# ---------------------------- CORS Middleware ----------------------------
+
+# Добавяне на CORS middleware за разрешаване на крос-домейнови заявки
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Или заменете със специфичен URL като "http://localhost:3000"
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
